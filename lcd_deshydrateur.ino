@@ -16,7 +16,7 @@ const byte RELAY_PIN = A5;
 
 /** Variable */
 float DS18B20_temperature;
-bool mode = false, modeSel =false;
+bool mode = false;
 byte selectMode = 0;
 int backlight = 10, tempsRestant, tempsMin = 1;
 unsigned long long tempo, tempoBase;
@@ -30,14 +30,18 @@ OneWire ds(DS18B20_PIN); // on pin DS18B20_PIN (a 4.7K resistor is necessary)
 /** Objet LiquidCrystal pour communication avec l'écran LCD */
 LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
 
-/** Énumération des boutons utilisables */
+/** Énumération des boutons utilisables et des selections possibles*/
 enum {
   BUTTON_NONE,  /*!< Pas de bouton appuyé */
   BUTTON_UP,    /*!< Bouton UP (haut) */
   BUTTON_DOWN,  /*!< Bouton DOWN (bas) */
   BUTTON_LEFT,  /*!< Bouton LEFT (gauche) */
   BUTTON_RIGHT, /*!< Bouton RIGHT (droite) */
-  BUTTON_SELECT /*!< Bouton SELECT */
+  BUTTON_SELECT, /*!< Bouton SELECT */
+  OFF, /*!< Selection OFF */
+  BACKLIGHT, /*!< Selection BAKLIGHT */
+  MINUTES, /*!< Selection TEMPS DE TRAVAIL */
+  TEMPERATURE /*!< Selection TEMPERATURE DE CONSIGNE */
 };
 
 void setup() {
@@ -105,18 +109,31 @@ void loop() {
     break;
 
   case BUTTON_SELECT:
-    if(modeSel){
+    switch(selectMode){
+      case OFF:
+        selectMode = BACKLIGHT;
+      break;
+      case BACKLIGHT:
+        selectMode = MINUTES;
+      break;
+      case MINUTES:
+        selectMode = TEMPERATURE;
+      break;
+      case TEMPERATURE:
+        selectMode = OFF;
+      break;
+    }
+      /*
       modeSel = false;
       lcd.setCursor(0,1);
       lcd.print("T");
       lcd.print((char)223);
       lcd.print(DS18B20_temperature);
-    }else{
       modeSel = true;
       lcd.setCursor(0,1);
       lcd.print("SELECT ");
       delay(800);
-    }
+      */
     break;
   }
 
