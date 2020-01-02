@@ -22,8 +22,8 @@ const byte RELAY_PIN = A5;
 float DS18B20_temperature;
 bool mode = false;
 byte selectMode, temperatureConsigne = 30, hysteresisConsigne = 1;
-int backlight = 50, tempsRestant, tempsMin = 120;
-unsigned long long tempo, tempoBase;
+int backlight = 50, tempsRestant, tempsMin = 120,tempsEcoule;
+unsigned long long tempo, tempsBase;
 
 // Variables propres au DS18B20
 const int DS18B20_PIN=A1;
@@ -136,7 +136,7 @@ void loop() {
   case BUTTON_RIGHT:
     lcd.setCursor(13,0);
     lcd.print("ON ");
-    tempoBase = tempo;
+    tempsBase = tempo;
     mode = true;
     selectMode = OFF; // eviter que le procès débute sans lecture de température.
     lcd.setCursor(8,1);
@@ -215,16 +215,47 @@ void loop() {
   }
 }
 
-/*-----------------------------------------------
+/*-------------------------------------------------------------------------------------
  *  FONCTION ANNEXE
+ *  -----------------------------------------------------------------------------------
  */
 
+
+/* fonction Relay
+ * avec gestion d'une première chauffe avec un temps en fonction de la température de consigne
+ */
 void relay(){
-  
   if(DS18B20_temperature < temperatureConsigne && mode == true){
-    digitalWrite(RELAY_PIN, HIGH);
-    lcd.setCursor(13, 1);
-    lcd.print("On ");
+    bool onOff = false;
+    if(tempsEcoule > 240){
+      onOff = true;  
+    }else if(tempsEcoule < temperatureConsigne){
+      onOff = true;
+    }else if(tempsEcoule < temperatureConsigne+45){
+      onOff = false;
+    }else if(tempsEcoule < temperatureConsigne*2+45){
+      onOff = true;
+    }else if(tempsEcoule < temperatureConsigne*2+90){
+      onOff = false;
+    }else if(tempsEcoule < temperatureConsigne*3+90){
+      onOff = true;
+    }else if(tempsEcoule < temperatureConsigne*3+135){
+      onOff = false;
+    }else if(tempsEcoule < temperatureConsigne*4+135){
+      onOff = true;
+    }else{
+      onOff = false;
+    }
+    // 2eme fonction 
+    if(onOff){
+      digitalWrite(RELAY_PIN, HIGH);
+      lcd.setCursor(13, 1);
+      lcd.print("On ");
+    }else{
+      digitalWrite(RELAY_PIN, LOW);
+      lcd.setCursor(13, 1);
+      lcd.print("Off");
+    }
   }else if(DS18B20_temperature > (temperatureConsigne + hysteresisConsigne) || mode == false){
     digitalWrite(RELAY_PIN, LOW);
     if(selectMode == OFF){
@@ -238,10 +269,10 @@ void relay(){
 void calculTime(){
   tempo = superMillis();
   tempo = tempo/1000;
-  int temp = tempo - tempoBase;
-  Serial.println(temp);
+  tempsEcoule = tempo - tempsBase;
+  Serial.println(tempsEcoule);
   if(mode){
-    tempsRestant = tempsMin-(temp/60);
+    tempsRestant = tempsMin-(tempsEcoule/60);
     Serial.println(tempsRestant);
     displayTime(tempsRestant);
   }else{
