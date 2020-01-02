@@ -17,8 +17,8 @@ const byte RELAY_PIN = A5;
 /** Variable */
 float DS18B20_temperature;
 bool mode = false;
-byte selectMode = 0;
-int backlight = 10, tempsRestant, tempsMin = 1;
+byte selectMode, temperatureConsigne = 30;
+int backlight = 50, tempsRestant, tempsMin = 120;
 unsigned long long tempo, tempoBase;
 
 // Variables propres au DS18B20
@@ -48,16 +48,19 @@ void setup() {
   Serial.begin(9600);
   // put your setup code here, to run once:
   lcd.begin(16, 2);
-  lcd.print("Deshydrateur");
+  lcd.print("  Deshydrateur");
+  lcd.setCursor(0,1);
+  lcd.print(" L.Mercet v1.0");
   analogWrite(BACKLIGHT_PWM_PIN, backlight); // Pas de rétroéclairage
   pinMode(RELAY_PIN, OUTPUT);
-  delay(2000);
+  delay(3000);
   lcd.clear();
   lcd.print("240min hu20% OFF");
   lcd.setCursor(0,1);
   lcd.print("T 00.00  Rel OFF");
   lcd.setCursor(1,1);
   lcd.print((char)223);
+  selectMode = OFF;
 }
 
 void loop() {
@@ -66,28 +69,48 @@ void loop() {
 
   switch (getPressedButton()) {
   case BUTTON_NONE:
-    if(!modeSel){
-      lcd.setCursor(2, 1);
+    lcd.setCursor(2, 1);
+    if(selectMode == OFF){
       lcd.print(DS18B20_temperature);
+    }else if(selectMode == TEMPERATURE){
+      lcd.print(temperatureConsigne);
     }
     break;
 
   case BUTTON_UP:
-    if(!modeSel){
-      backlight++;
-    }else{
-      tempsMin++;
-      delay(200);
+    switch(selectMode){
+      case OFF:
+        tempsMin++;
+      break;
+      case BACKLIGHT:
+        backlight++;
+      break;
+      case MINUTES:
+        tempsMin++;
+      break;
+      case TEMPERATURE:
+        temperatureConsigne++;
+      break;
     }
+    delay(150);
     break;
 
   case BUTTON_DOWN:
-    if(!modeSel){
-      backlight--;
-    }else{
-      tempsMin--;
-      delay(200);
+    switch(selectMode){
+      case OFF:
+        tempsMin--;
+      break;
+      case BACKLIGHT:
+        backlight--;
+      break;
+      case MINUTES:
+        tempsMin--;
+      break;
+      case TEMPERATURE:
+        temperatureConsigne--;
+      break;
     }
+    delay(150);
     break;
 
   case BUTTON_LEFT:
@@ -101,39 +124,48 @@ void loop() {
     lcd.print("ON ");
     tempoBase = tempo;
     mode = true;
-    modeSel = false; // evétier le bug
-    lcd.setCursor(0,1);
-    lcd.print("T");
-    lcd.print((char)223);
-    lcd.print(DS18B20_temperature);
+    selectMode = OFF; // evétier le bug
+    lcd.setCursor(8,1);
+    lcd.print(" Rel    ");
     break;
 
   case BUTTON_SELECT:
-    switch(selectMode){
-      case OFF:
-        selectMode = BACKLIGHT;
-      break;
-      case BACKLIGHT:
-        selectMode = MINUTES;
-      break;
-      case MINUTES:
-        selectMode = TEMPERATURE;
-      break;
-      case TEMPERATURE:
-        selectMode = OFF;
-      break;
-    }
-      /*
-      modeSel = false;
-      lcd.setCursor(0,1);
-      lcd.print("T");
-      lcd.print((char)223);
-      lcd.print(DS18B20_temperature);
-      modeSel = true;
-      lcd.setCursor(0,1);
-      lcd.print("SELECT ");
+    if(!mode){
+      switch(selectMode){
+        case OFF:
+          selectMode = BACKLIGHT;
+        break;
+        case BACKLIGHT:
+          selectMode = MINUTES;
+        break;
+        case MINUTES:
+          selectMode = TEMPERATURE;
+        break;
+        case TEMPERATURE:
+          selectMode = OFF;
+        break;
+      }
+      Serial.println(selectMode);
+      lcd.setCursor(8,1);
+      switch(selectMode){
+        case OFF:
+          lcd.print(" Rel    ");
+        break;
+        case BACKLIGHT:
+          lcd.print("Sel Back");
+        break;
+        case MINUTES:
+          lcd.print("Sel Minu");
+        break;
+        case TEMPERATURE:
+          lcd.print("Sel temp");
+          lcd.setCursor(2,1);
+          lcd.print(temperatureConsigne);
+          lcd.print(".00");
+        break;
+      }
       delay(800);
-      */
+    }
     break;
   }
 
@@ -142,9 +174,7 @@ void loop() {
 
   /* Délai pour l'affichage */
   analogWrite(BACKLIGHT_PWM_PIN, backlight);
-  if( modeSel && !mode){
-    
-  }else{
+  if(selectMode == OFF){
     DS18B20_temperature = getTemperatureDS18b20(); // On lance la fonction d'acquisition de T°
     // on affiche la T°
     Serial.print("(DS18B20) =>\t temperature: "); 
@@ -167,11 +197,11 @@ void loop() {
 
 void relay(){
   
-  if(DS18B20_temperature < 30 && mode == true){
+  if(DS18B20_temperature < temperatureConsigne && mode == true){
     digitalWrite(RELAY_PIN, HIGH);
     lcd.setCursor(13, 1);
     lcd.print("On ");
-  }else{
+  }else if(selectMode == OFF){
     digitalWrite(RELAY_PIN, LOW);
     lcd.setCursor(13, 1);
     lcd.print("Off");
