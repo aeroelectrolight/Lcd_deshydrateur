@@ -3,6 +3,10 @@
  *  DESHYDRATEUR DE FILAMENT
  *  L.MERCET 01/01/2020
  * 
+ * Todo :
+ * - un réglage d'hystérésis sur 1 degré sera pas mal
+ * - un mode de chauffe à l'allumage (15s de chauffe puis 45s d'attente) * 3
+ * 
  ****************************************************************************************/
 
 
@@ -17,7 +21,7 @@ const byte RELAY_PIN = A5;
 /** Variable */
 float DS18B20_temperature;
 bool mode = false;
-byte selectMode, temperatureConsigne = 30;
+byte selectMode, temperatureConsigne = 30, hysteresisConsigne = 1;
 int backlight = 50, tempsRestant, tempsMin = 120;
 unsigned long long tempo, tempoBase;
 
@@ -41,7 +45,8 @@ enum {
   OFF, /*!< Selection OFF */
   BACKLIGHT, /*!< Selection BAKLIGHT */
   MINUTES, /*!< Selection TEMPS DE TRAVAIL */
-  TEMPERATURE /*!< Selection TEMPERATURE DE CONSIGNE */
+  TEMPERATURE, /*!< Selection TEMPERATURE DE CONSIGNE */
+  HYSTERESIS /*!< Selection TEMPERATURE DE CONSIGNE */
 };
 
 void setup() {
@@ -74,6 +79,9 @@ void loop() {
       lcd.print(DS18B20_temperature);
     }else if(selectMode == TEMPERATURE){
       lcd.print(temperatureConsigne);
+    }else if(selectMode == HYSTERESIS){
+      lcd.setCursor(3, 1);
+      lcd.print(hysteresisConsigne);
     }
     break;
 
@@ -90,6 +98,9 @@ void loop() {
       break;
       case TEMPERATURE:
         temperatureConsigne++;
+      break;
+      case HYSTERESIS:
+        hysteresisConsigne++;
       break;
     }
     delay(150);
@@ -109,6 +120,9 @@ void loop() {
       case TEMPERATURE:
         temperatureConsigne--;
       break;
+      case HYSTERESIS:
+        hysteresisConsigne--;
+      break;
     }
     delay(150);
     break;
@@ -124,7 +138,7 @@ void loop() {
     lcd.print("ON ");
     tempoBase = tempo;
     mode = true;
-    selectMode = OFF; // evétier le bug
+    selectMode = OFF; // eviter que le procès débute sans lecture de température.
     lcd.setCursor(8,1);
     lcd.print(" Rel    ");
     break;
@@ -142,6 +156,9 @@ void loop() {
           selectMode = TEMPERATURE;
         break;
         case TEMPERATURE:
+          selectMode = HYSTERESIS;
+        break;
+        case HYSTERESIS:
           selectMode = OFF;
         break;
       }
@@ -161,6 +178,13 @@ void loop() {
           lcd.print("Sel temp");
           lcd.setCursor(2,1);
           lcd.print(temperatureConsigne);
+          lcd.print(".00");
+        break;
+        case HYSTERESIS:
+          lcd.print("Sel hyst");
+          lcd.setCursor(2,1);
+          lcd.print("0");
+          lcd.print(hysteresisConsigne);
           lcd.print(".00");
         break;
       }
@@ -201,12 +225,13 @@ void relay(){
     digitalWrite(RELAY_PIN, HIGH);
     lcd.setCursor(13, 1);
     lcd.print("On ");
-  }else if(selectMode == OFF){
+  }else if(DS18B20_temperature > (temperatureConsigne + hysteresisConsigne) || mode == false){
     digitalWrite(RELAY_PIN, LOW);
-    lcd.setCursor(13, 1);
-    lcd.print("Off");
+    if(selectMode == OFF){
+      lcd.setCursor(13, 1);
+      lcd.print("Off");
+    }
   }
-  
 }
 
 /* Affichage du temps restant dans le déshydrateur */
